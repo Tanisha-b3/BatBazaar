@@ -13,7 +13,7 @@ import { API_URL } from '../config';
 interface Order {
   id: number;
   user_id: string;
-  total_amount: number;
+  total_amount: number | string;
   status: string;
   created_at: string;
   shipping_address?: string;
@@ -115,8 +115,8 @@ export default function Orders() {
       if (statusFilter !== 'all') params.status = statusFilter;
       const { data } = await axios.get(`${API_URL}/api/admin/orders`, {
         headers: { Authorization: `Bearer ${token}` }, params,
-      });
-      setOrders(data.orders ?? []);
+       });
+    setOrders(data.orders?.map((o: any) => ({ ...o, total_amount: Number(o.total_amount) })) ?? []);
     } catch (err) {
       if (axios.isAxiosError(err)) {
         toast.error(err.response?.status === 401 ? 'Session expired.' : err.response?.data?.message ?? 'Failed to fetch orders');
@@ -456,7 +456,7 @@ export default function Orders() {
                     <Calendar size={11} /> Order info
                   </p>
                   <InfoRow label="Date"   value={formatDate(selectedOrder.created_at)} />
-                  <InfoRow label="Amount" value={formatCurrency(selectedOrder.total_amount)} />
+                  <InfoRow label="Amount" value={formatCurrency(orders.reduce((s, o) => s + Number(o.total_amount), 0))} />
                   <div className="flex flex-col gap-1.5">
                     <span className="text-[10px] font-bold uppercase tracking-widest text-stone-400">Update status</span>
                     <select
