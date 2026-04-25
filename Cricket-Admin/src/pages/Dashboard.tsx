@@ -1,12 +1,12 @@
 import { useState, useEffect } from 'react';
 import {
   Package, ShoppingCart, TrendingUp, Users,
-  Eye, ArrowUp, ArrowDown, RefreshCw,
+  ArrowUp, ArrowDown, RefreshCw,
   AlertTriangle, ChevronRight, BarChart3,
 } from 'lucide-react';
 import axios from 'axios';
-import { Link } from 'react-router-dom';
-import toast from 'react-hot-toast';
+import { API_URL } from '../config';
+import { Link, useNavigate } from 'react-router-dom';
 
 /* ─── Types ─────────────────────────────────────────────────── */
 interface Stats {
@@ -51,33 +51,6 @@ const STATUS_STYLES: Record<string, { bg: string; text: string; dot: string }> =
   cancelled:  { bg: 'bg-red-50',     text: 'text-red-600',     dot: 'bg-red-400' },
 };
 
-/* ─── Demo Data (for when API is unavailable) ───────────────── */
-const DEMO_STATS: Stats = {
-  totalProducts: 156,
-  totalOrders: 1248,
-  totalRevenue: 3842500,
-  recentOrders: 89,
-  totalUsers: 3421,
-  pendingOrders: 23,
-  revenueChange: 12.5,
-  ordersChange: 8.3,
-};
-
-const DEMO_RECENT_ORDERS: RecentOrder[] = [
-  { id: 1001, user_id: 'user_001', total_amount: 2499, status: 'delivered', created_at: new Date().toISOString(), user_name: 'Rahul Sharma' },
-  { id: 1002, user_id: 'user_002', total_amount: 3999, status: 'shipped', created_at: new Date(Date.now() - 86400000).toISOString(), user_name: 'Priya Patel' },
-  { id: 1003, user_id: 'user_003', total_amount: 1899, status: 'processing', created_at: new Date(Date.now() - 172800000).toISOString(), user_name: 'Amit Kumar' },
-  { id: 1004, user_id: 'user_004', total_amount: 5499, status: 'pending', created_at: new Date(Date.now() - 259200000).toISOString(), user_name: 'Sneha Reddy' },
-  { id: 1005, user_id: 'user_005', total_amount: 1299, status: 'delivered', created_at: new Date(Date.now() - 345600000).toISOString(), user_name: 'Vikram Singh' },
-];
-
-const DEMO_LOW_STOCK: LowStockProduct[] = [
-  { id: 1, name: 'Cricket Bat - Professional Grade', stock: 3, price: 4999 },
-  { id: 2, name: 'Leather Cricket Ball', stock: 5, price: 899 },
-  { id: 3, name: 'Batting Gloves - Premium', stock: 2, price: 1299 },
-  { id: 4, name: 'Helmet - Pro Series', stock: 4, price: 2499 },
-];
-
 /* ─── Sub-components ────────────────────────────────────────── */
 function StatusPill({ status }: { status: string }) {
   const s = STATUS_STYLES[status.toLowerCase()] ?? { bg: 'bg-stone-100', text: 'text-stone-600', dot: 'bg-stone-400' };
@@ -100,6 +73,7 @@ function SectionHeader({ title, action }: { title: string; action?: React.ReactN
 
 /* ─── Main ───────────────────────────────────────────────────── */
 export default function Dashboard() {
+  const navigate = useNavigate();
   const [stats, setStats] = useState<Stats>({
     totalProducts: 0, totalOrders: 0, totalRevenue: 0,
     recentOrders: 0, totalUsers: 0, pendingOrders: 0,
@@ -107,70 +81,39 @@ export default function Dashboard() {
   });
   const [recentOrders, setRecentOrders]         = useState<RecentOrder[]>([]);
   const [lowStockProducts, setLowStockProducts] = useState<LowStockProduct[]>([]);
-  const [loading, setLoading]   = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-  const [error, setError]       = useState<string | null>(null);
-  const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
-  const [usingDemoMode, setUsingDemoMode] = useState(false);
+  const [loading, setLoading]                   = useState(true);
+  const [refreshing, setRefreshing]             = useState(false);
+  const [error, setError]                       = useState<string | null>(null);
+  const [lastUpdated, setLastUpdated]           = useState<Date>(new Date());
 
   useEffect(() => { fetchData(); }, []);
 
   const fetchData = async (soft = false) => {
-    // Check if we're in demo mode
-    const isDemoMode = localStorage.getItem('useDemoMode') === 'true';
-    
-    if (isDemoMode) {
-      // Use demo data
-      setStats(DEMO_STATS);
-      setRecentOrders(DEMO_RECENT_ORDERS);
-      setLowStockProducts(DEMO_LOW_STOCK);
-      setUsingDemoMode(true);
-      setLoading(false);
-      setRefreshing(false);
-      setLastUpdated(new Date());
-      return;
-    }
-
     soft ? setRefreshing(true) : setLoading(true);
     setError(null);
-    
     try {
       const token = localStorage.getItem('adminToken');
-      if (!token) { 
-        setError('Authentication required. Please login again.');
-        setLoading(false);
+      if (!token) {
+        // No token at all — send to login
+        navigate('/login');
         return;
       }
-      
-      // Use relative path to avoid CORS issues
-      const response = await axios.get(`${import.meta.env.VITE_API_URL}/api/admin/dashboard`, {
+
+      const { data } = await axios.get(`${API_URL}/api/admin/dashboard`, {
         headers: { Authorization: `Bearer ${token}` },
-        timeout: 10000, // 10 second timeout
       });
-      
-      setStats(response.data.stats ?? response.data);
-      setRecentOrders(response.data.recentOrders ?? []);
-      setLowStockProducts(response.data.lowStockProducts ?? []);
-      setUsingDemoMode(false);
+
+      setStats(data.stats ?? data);
+      setRecentOrders(data.recentOrders ?? []);
+      setLowStockProducts(data.lowStockProducts ?? []);
       setLastUpdated(new Date());
-      
     } catch (err) {
-      console.error('Dashboard fetch error:', err);
-      
-      // Fall back to demo data on error
       if (axios.isAxiosError(err)) {
         if (err.response?.status === 401) {
-          setError('Session expired. Please login again.');
-          setTimeout(() => { window.location.href = '/login'; }, 2000);
-        } else if (err.code === 'ERR_NETWORK' || err.message.includes('CORS')) {
-          // Network/CORS error - use demo data
-          console.log('Network/CORS error, using demo data');
-          setStats(DEMO_STATS);
-          setRecentOrders(DEMO_RECENT_ORDERS);
-          setLowStockProducts(DEMO_LOW_STOCK);
-          setUsingDemoMode(true);
-          setError(null); // Clear error since we have demo data
-          toast.error('Using demo data (API unavailable)');
+          // Token is invalid or expired — clear storage and send to login
+          localStorage.removeItem('adminToken');
+          localStorage.removeItem('admin');
+          navigate('/login');
         } else {
           setError(err.response?.data?.message ?? 'Failed to load dashboard');
         }
@@ -232,23 +175,12 @@ export default function Dashboard() {
         </div>
         <h3 className="text-base font-semibold text-stone-900 mb-1">Failed to load</h3>
         <p className="text-sm text-stone-400 mb-5">{error}</p>
-        <div className="space-y-2">
-          <button
-            onClick={() => fetchData()}
-            className="inline-flex items-center justify-center gap-2 w-full px-5 py-2.5 bg-[#3F51B5] text-white text-sm font-medium rounded-xl hover:bg-stone-700 transition-colors"
-          >
-            <RefreshCw size={14} /> Retry
-          </button>
-          <button
-            onClick={() => {
-              localStorage.setItem('useDemoMode', 'true');
-              fetchData();
-            }}
-            className="inline-flex items-center justify-center gap-2 w-full px-5 py-2.5 border border-stone-200 text-stone-600 text-sm font-medium rounded-xl hover:bg-stone-50 transition-colors"
-          >
-            Use Demo Data
-          </button>
-        </div>
+        <button
+          onClick={() => fetchData()}
+          className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#3F51B5] text-white text-sm font-medium rounded-xl hover:bg-[#2c3a8c] transition-colors"
+        >
+          <RefreshCw size={14} /> Retry
+        </button>
       </div>
     </div>
   );
@@ -257,32 +189,12 @@ export default function Dashboard() {
   return (
     <div className="space-y-4 md:space-y-6 p-4 md:p-6" style={{ fontFamily: "'DM Sans', sans-serif" }}>
 
-      {/* ── Demo Mode Banner ── */}
-      {usingDemoMode && (
-        <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <AlertTriangle size={16} className="text-amber-600" />
-            <p className="text-xs text-amber-700">Demo Mode: Using sample data (API unavailable)</p>
-          </div>
-          <button
-            onClick={() => {
-              localStorage.removeItem('useDemoMode');
-              fetchData();
-            }}
-            className="text-xs text-amber-700 hover:text-amber-900 underline"
-          >
-            Try API again
-          </button>
-        </div>
-      )}
-
       {/* ── Header ── */}
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold text-stone-900 tracking-tight">Dashboard</h1>
           <p className="text-xs text-stone-400 mt-0.5 font-mono">
             Updated {lastUpdated.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
-            {usingDemoMode && ' (Demo Data)'}
           </p>
         </div>
         <button
@@ -384,10 +296,7 @@ export default function Dashboard() {
                   <p className="text-xs text-stone-400 mt-0.5">{formatCurrency(product.price)}</p>
                 </div>
                 <span className={`text-xs font-bold px-2.5 py-1 rounded-full tabular-nums
-                  ${product.stock <= 5
-                    ? 'bg-red-50 text-red-600'
-                    : 'bg-amber-50 text-amber-600'}
-                `}>
+                  ${product.stock <= 5 ? 'bg-red-50 text-red-600' : 'bg-amber-50 text-amber-600'}`}>
                   {product.stock} left
                 </span>
               </div>
@@ -406,31 +315,14 @@ export default function Dashboard() {
       {/* ── Quick actions ── */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {[
-          {
-            to: '/products',            icon: Package,
-            title: 'Add product',
-            sub: 'Create a new product listing',
-            accent: 'hover:border-stone-400',
-          },
-          {
-            to: '/orders',
-            icon: ShoppingCart,
-            title: 'Manage orders',
-            sub: 'View and update customer orders',
-            accent: 'hover:border-stone-400',
-          },
-          {
-            to: '/analytics',
-            icon: BarChart3,
-            title: 'Analytics',
-            sub: 'Sales reports and insights',
-            accent: 'hover:border-stone-400',
-          },
-        ].map(({ to, icon: Icon, title, sub, accent }) => (
+          { to: '/products', icon: Package,    title: 'Add product',    sub: 'Create a new product listing' },
+          { to: '/orders',   icon: ShoppingCart, title: 'Manage orders', sub: 'View and update customer orders' },
+          { to: '/analytics',icon: BarChart3,  title: 'Analytics',      sub: 'Sales reports and insights' },
+        ].map(({ to, icon: Icon, title, sub }) => (
           <Link
             key={to}
             to={to}
-            className={`group flex items-center gap-4 p-5 bg-white rounded-2xl border border-stone-200 ${accent} transition-all hover:shadow-sm`}
+            className="group flex items-center gap-4 p-5 bg-white rounded-2xl border border-stone-200 hover:border-stone-400 transition-all hover:shadow-sm"
           >
             <div className="w-11 h-11 rounded-xl bg-stone-100 flex items-center justify-center shrink-0 group-hover:bg-[#3F51B5] transition-colors">
               <Icon size={18} className="text-stone-500 group-hover:text-white transition-colors" />
