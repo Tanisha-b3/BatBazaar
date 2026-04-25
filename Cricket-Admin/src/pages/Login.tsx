@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Package, Mail, Lock, Eye, EyeOff, AlertCircle } from 'lucide-react';
 import axios from 'axios';
@@ -13,6 +13,14 @@ interface FormErrors {
 export default function AdminLogin() {
   const navigate = useNavigate();
   
+  // Redirect if already logged in
+  useEffect(() => {
+    const token = localStorage.getItem('adminToken');
+    if (token) {
+      navigate('/', { replace: true });
+    }
+  }, [navigate]);
+
   const [formData, setFormData] = useState({
     email: '',
     password: '',
@@ -67,13 +75,18 @@ export default function AdminLogin() {
     
     setLoading(true);
 
+    // Demo login
     if (formData.email === 'admin@cricket.com' && formData.password === 'admin123') {
       const demoAdmin = { id: 1, name: 'Admin', email: 'admin@cricket.com' };
       localStorage.setItem('adminToken', 'admin-demo-token');
       localStorage.setItem('admin', JSON.stringify(demoAdmin));
       toast.success('Welcome back, Admin!');
-      navigate('/');
-      setLoading(false);
+      
+      // Small delay to ensure toast is shown and state updates are processed
+      setTimeout(() => {
+        navigate('/', { replace: true });
+        setLoading(false);
+      }, 100);
       return;
     }
 
@@ -88,12 +101,17 @@ export default function AdminLogin() {
       localStorage.setItem('admin', JSON.stringify(admin));
       
       toast.success('Welcome back, Admin!');
-      navigate('/');
+      
+      // Small delay to ensure toast is shown
+      setTimeout(() => {
+        navigate('/', { replace: true });
+        setLoading(false);
+      }, 100);
+      
     } catch (err: any) {
       const errorMsg = err.response?.data?.message || 'Invalid email or password';
       setErrors({ email: errorMsg });
       toast.error(errorMsg);
-    } finally {
       setLoading(false);
     }
   };
