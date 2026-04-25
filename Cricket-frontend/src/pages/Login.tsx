@@ -168,7 +168,7 @@ export default function Login() {
     <div className="relative min-h-screen">
       {/* Background */}
       <div className="absolute inset-0">
-        <img src="/stadium.png" alt="Cricket Stadium" className="w-full h-full object-cover" />
+        <img src="/stadium.webp" alt="Cricket Stadium" className="w-full h-full object-cover" />
         <div className="absolute inset-0 bg-black/50" />
       </div>
 

@@ -10,7 +10,12 @@ interface FormErrors {
   password?: string;
 }
 
-export default function AdminLogin() {
+interface Props {
+  onLogin: () => void;
+}
+
+
+export default function AdminLogin({ onLogin }: Props) {
   const navigate = useNavigate();
 
   const [formData, setFormData] = useState({ email: '', password: '' });
@@ -69,7 +74,7 @@ export default function AdminLogin() {
       localStorage.setItem('admin', JSON.stringify(admin));
 
       toast.success('Welcome back, Admin!');
-      navigate('/');
+      onLogin(); // ← replaces navigate('/')
     } catch (err: any) {
       const errorMsg = err.response?.data?.message || 'Invalid email or password';
       setErrors({ email: errorMsg });
@@ -89,7 +94,7 @@ export default function AdminLogin() {
   return (
     <div className="relative min-h-screen">
       <div className="absolute inset-0">
-        <img src="/stadium.png" alt="Cricket Stadium" className="w-full h-full object-cover" />
+        <img src="/stadium.webp" alt="Cricket Stadium" className="w-full h-full object-cover" />
         <div className="absolute inset-0 bg-black/50" />
       </div>
 

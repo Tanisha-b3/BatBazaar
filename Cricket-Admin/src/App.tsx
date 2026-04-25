@@ -1,4 +1,5 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { useState } from 'react';
+import { BrowserRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import Layout from './components/Layout';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
@@ -8,25 +9,52 @@ import Orders from './pages/Orders';
 import OrderDetail from './pages/OrderDetail';
 import AddressManagement from './pages/AddressManagement';
 
-function App() {
-  const isAuthenticated = !!localStorage.getItem('adminToken');
+function AppRoutes() {
+  const navigate = useNavigate();
+  const [isAuthenticated, setIsAuthenticated] = useState(
+    !!localStorage.getItem('adminToken')
+  );
+
+  const handleLogin = () => {
+    setIsAuthenticated(true);
+    navigate('/', { replace: true }); // ← force navigation after state update
+  };
+
+const handleLogout = () => {
+  setIsAuthenticated(false);
+  navigate('/login', { replace: true });
+};
+
 
   return (
+    <Routes>
+      <Route
+        path="/login"
+        element={
+          isAuthenticated
+            ? <Navigate to="/" replace />
+            : <Login onLogin={handleLogin} />
+        }
+      />
+      <Route path="/" element={isAuthenticated ? <Layout onLogout={handleLogout} /> : <Navigate to="/login" replace />}>
+        <Route index element={<Dashboard />} />
+        <Route path="analytics" element={<Analytics />} />
+        <Route path="products" element={<Products />} />
+        <Route path="orders" element={<Orders />} />
+        <Route path="orders/:id" element={<OrderDetail />} />
+        <Route path="users/:userId/addresses" element={<AddressManagement />} />
+      </Route>
+    </Routes>
+  );
+}
+
+function App() {
+  return (
     <BrowserRouter>
-      <Routes>
-        <Route path="/login" element={<Login />} />
-        
-        <Route path="/" element={isAuthenticated ? <Layout /> : <Navigate to="/login" />}>
-          <Route index element={<Dashboard />} />
-          <Route path="analytics" element={<Analytics />} />
-          <Route path="products" element={<Products />} />
-          <Route path="orders" element={<Orders />} />
-          <Route path="orders/:id" element={<OrderDetail />} />
-          <Route path="users/:userId/addresses" element={<AddressManagement />} />
-        </Route>
-      </Routes>
+      <AppRoutes />
     </BrowserRouter>
   );
 }
+
 
 export default App;

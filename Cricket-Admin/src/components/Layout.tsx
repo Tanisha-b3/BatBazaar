@@ -10,14 +10,18 @@ import {
   TrendingUp,
 } from 'lucide-react';
 
-export default function Layout() {
+interface Props {
+  onLogout: () => void;
+}
+
+export default function Layout({ onLogout }: Props) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
 
   const handleLogout = () => {
     localStorage.removeItem('adminToken');
-    navigate('/login');
+    onLogout(); // ← App clears state + navigates
   };
 
   const menuItems = [
