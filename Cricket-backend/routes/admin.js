@@ -23,26 +23,17 @@ const verifyAdmin = async (req, res, next) => {
   }
 };
 
-router.post('/create', async (req, res) => {
+router.post('/create', async (req, res, next) => {
   try {
-    const { name, email, password } = req.body;
-
-    if (!name || !email || !password) {
-      return res.status(400).json({ message: 'Name, email and password required' });
-    }
-
-    // 🔥 Check if any admin exists
     const adminCount = await db().query('SELECT COUNT(*) FROM admins');
 
     if (parseInt(adminCount.rows[0].count) > 0) {
-      // If admin exists → require token
-      return verifyAdmin(req, res, async () => {
-        await createAdminHandler(req, res);
-      });
+      // If admin exists → run middleware properly
+      return verifyAdmin(req, res, () => createAdminHandler(req, res));
     }
 
-    // First admin → allow directly
-    await createAdminHandler(req, res);
+    // First admin → no auth required
+    return createAdminHandler(req, res);
 
   } catch (error) {
     console.error(error);
