@@ -37,6 +37,8 @@ export async function initializeDatabase() {
         email VARCHAR(100) UNIQUE NOT NULL,
         phone VARCHAR(20) NOT NULL,
         password VARCHAR(255) NOT NULL,
+        otp VARCHAR(10),
+        otp_expires TIMESTAMP,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `);

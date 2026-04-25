@@ -7,7 +7,7 @@ import productRoutes from './routes/products.js';
 import cartRoutes from './routes/cart.js';
 import categoryRoutes from './routes/categories.js';
 import orderRoutes from './routes/orders.js';
-import otpRoutes from './routes/otp.js';
+// import otpRoutes from './routes/otp.js';
 import notificationRoutes from './routes/notifications.js';
 import addressRoutes from './routes/addresses.js';
 import { initializeDatabase, getDb } from './config/database.js';
@@ -36,7 +36,7 @@ app.use('/api/products', productRoutes);
 app.use('/api/cart', cartRoutes);
 app.use('/api/categories', categoryRoutes);
 app.use('/api/orders', orderRoutes);
-app.use('/api/otp', otpRoutes);
+// app.use('/api/otp', otpRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/addresses', addressRoutes);
 

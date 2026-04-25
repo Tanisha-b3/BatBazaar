@@ -12,13 +12,13 @@ const db = () => getDb();
 const generateTokens = (user) => {
   const accessToken = jwt.sign(
     { id: user.id, email: user.email }, 
-    process.env.JWT_SECRET, 
+    process.env.JWT_SECRET || 'your_jwt_secret_key_here', 
     { expiresIn: '1h' }
   );
   
   const refreshToken = jwt.sign(
     { id: user.id, email: user.email }, 
-    process.env.JWT_REFRESH_SECRET, 
+    process.env.JWT_REFRESH_SECRET || 'your_refresh_secret_key_here', 
     { expiresIn: '7d' }
   );
   
@@ -84,9 +84,12 @@ export const login = async (req, res) => {
       return res.status(401).json({ message: 'Invalid credentials' });
     }
     
-    const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch) {
-      return res.status(401).json({ message: 'Invalid credentials' });
+    // Skip password check for OTP-based users (temporary password)
+    if (user.password !== 'temporary') {
+      const isMatch = await bcrypt.compare(password, user.password);
+      if (!isMatch) {
+        return res.status(401).json({ message: 'Invalid credentials' });
+      }
     }
     
     const userData = { id: user.id, email: user.email };
@@ -95,7 +98,7 @@ export const login = async (req, res) => {
     res.json({ 
       message: 'Login successful', 
       ...tokens,
-      user: { id: user.id, name: user.name, email: user.email } 
+      user: { id: user.id, name: user.name, email: user.email, phone: user.phone } 
     });
   } catch (error) {
     console.error(error);
@@ -180,26 +183,60 @@ export const changePassword = async (req, res) => {
   }
 };
 
-const otpStore = new Map();
-
 export const sendOTP = async (req, res) => {
   try {
     const { phone } = req.body;
-    
+
     if (!phone) {
       return res.status(400).json({ message: 'Phone number required' });
     }
-    
+
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
-    
-    otpStore.set(phone, { otp, expiresAt: Date.now() + 5 * 60 * 1000 });
-    
-    console.log(`OTP for ${phone}: ${otp}`);
-    
-    res.json({ message: 'OTP sent successfully' });
+    const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 min
+
+    console.log(`📱 Sending OTP for ${phone}: ${otp}`);
+
+    // Check if user exists
+    const userResult = await db().query(
+      'SELECT * FROM users WHERE phone = $1',
+      [phone]
+    );
+
+    let result;
+    if (userResult.rows.length > 0) {
+      // Update existing user's OTP
+      result = await db().query(
+        `UPDATE users 
+         SET otp = $1, otp_expires = $2 
+         WHERE phone = $3
+         RETURNING id, phone, otp, otp_expires`,
+        [otp, expiresAt, phone]
+      );
+      console.log(`✅ Updated OTP for existing user: ${phone}`);
+    } else {
+      // Create temporary user with OTP
+      const userId = uuidv4();
+      result = await db().query(
+        `INSERT INTO users (id, name, email, phone, password, otp, otp_expires) 
+         VALUES ($1, $2, $3, $4, $5, $6, $7)
+         RETURNING id, phone, otp, otp_expires`,
+        [userId, `User_${phone.slice(-4)}`, `${phone}@phone.local`, phone, 'temporary', otp, expiresAt]
+      );
+      console.log(`✅ Created temporary user for ${phone}`);
+    }
+
+    // Verify OTP was saved
+    const savedOTP = result.rows[0];
+    console.log(`💾 Saved OTP for ${phone}:`, savedOTP.otp);
+    console.log(`⏰ Expires at:`, savedOTP.otp_expires);
+
+    res.json({ 
+      message: 'OTP sent successfully',
+      debug: process.env.NODE_ENV === 'development' ? { otp } : undefined
+    });
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: 'Failed to send OTP' });
+    console.error('❌ Error sending OTP:', error);
+    res.status(500).json({ message: 'Failed to send OTP', error: error.message });
   }
 };
 
@@ -210,48 +247,101 @@ export const verifyOTP = async (req, res) => {
     if (!phone || !otp) {
       return res.status(400).json({ message: 'Phone and OTP required' });
     }
+
+    console.log(`🔐 Verifying OTP for ${phone}: ${otp}`);
     
-    const stored = otpStore.get(phone);
+    // Get user from database
+    const userResult = await db().query(
+      'SELECT * FROM users WHERE phone = $1',
+      [phone]
+    );
     
-    if (!stored) {
-      return res.status(400).json({ message: 'OTP not found or expired' });
-    }
+    const user = userResult.rows[0];
     
-    if (Date.now() > stored.expiresAt) {
-      otpStore.delete(phone);
-      return res.status(400).json({ message: 'OTP expired' });
-    }
-    
-    if (stored.otp !== otp) {
-      return res.status(400).json({ message: 'Invalid OTP' });
-    }
-    
-    otpStore.delete(phone);
-    
-    let userResult = await db().query('SELECT * FROM users WHERE phone = $1', [phone]);
-    let user = userResult.rows[0];
+    console.log(`👤 User found:`, user ? 'Yes' : 'No');
     
     if (!user) {
-      const userId = uuidv4();
-      const tempPassword = await bcrypt.hash(phone + Date.now(), 10);
-      await db().query(
-        'INSERT INTO users (id, name, email, phone, password) VALUES ($1, $2, $3, $4, $5)',
-        [userId, `User_${phone.slice(-4)}`, `${phone}@phone.local`, phone, tempPassword]
-      );
-      user = { id: userId, name: `User_${phone.slice(-4)}`, email: `${phone}@phone.local`, phone };
+      return res.status(400).json({ message: 'User not found. Please request OTP again.' });
     }
     
+    console.log(`📝 Stored OTP: ${user.otp}`);
+    console.log(`⏰ OTP Expires: ${user.otp_expires}`);
+    console.log(`🕐 Current time: ${new Date().toISOString()}`);
+    
+    // Check if OTP exists
+    if (!user.otp) {
+      return res.status(400).json({ message: 'No OTP found. Please request a new OTP.' });
+    }
+    
+    // Check if OTP expired
+    if (new Date() > new Date(user.otp_expires)) {
+      console.log(`⚠️ OTP expired at ${user.otp_expires}`);
+      return res.status(400).json({ message: 'OTP expired. Please request a new OTP.' });
+    }
+    
+    // Verify OTP
+    if (user.otp !== otp) {
+      console.log(`❌ OTP mismatch: expected ${user.otp}, got ${otp}`);
+      return res.status(400).json({ message: 'Invalid OTP. Please try again.' });
+    }
+    
+    console.log(`✅ OTP verified successfully for ${phone}`);
+    
+    // Clear OTP after successful verification
+    await db().query(
+      'UPDATE users SET otp = NULL, otp_expires = NULL WHERE phone = $1',
+      [phone]
+    );
+    
+    // If user has temporary password, they should set a real password later
+    const needsPasswordSetup = user.password === 'temporary';
+    
+    // Generate tokens
     const userData = { id: user.id, email: user.email };
     const tokens = generateTokens(userData);
     
     res.json({ 
       message: 'Login successful', 
       ...tokens,
-      user: { id: user.id, name: user.name, email: user.email } 
+      user: { 
+        id: user.id, 
+        name: user.name, 
+        email: user.email,
+        phone: user.phone,
+        needsPasswordSetup
+      } 
     });
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: 'Failed to verify OTP' });
+    console.error('❌ Error verifying OTP:', error);
+    res.status(500).json({ message: 'Failed to verify OTP', error: error.message });
+  }
+};
+
+// Debug endpoint to check OTP status (development only)
+export const checkOTP = async (req, res) => {
+  try {
+    const { phone } = req.params;
+    
+    const result = await db().query(
+      'SELECT phone, otp, otp_expires FROM users WHERE phone = $1',
+      [phone]
+    );
+    
+    if (result.rows.length === 0) {
+      return res.json({ exists: false, message: 'No user found with this phone' });
+    }
+    
+    const user = result.rows[0];
+    res.json({
+      exists: true,
+      phone: user.phone,
+      otp: user.otp,
+      otp_expires: user.otp_expires,
+      isExpired: user.otp_expires ? new Date() > new Date(user.otp_expires) : true,
+      hasValidOTP: user.otp && !(new Date() > new Date(user.otp_expires))
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
   }
 };
 
@@ -325,7 +415,7 @@ export const refreshToken = async (req, res) => {
       return res.status(400).json({ message: 'Refresh token required' });
     }
     
-    const decoded = jwt.verify(token, process.env.JWT_REFRESH_SECRET);
+    const decoded = jwt.verify(token, process.env.JWT_REFRESH_SECRET || 'your_refresh_secret_key_here');
     
     const result = await db().query('SELECT id, name, email, phone FROM users WHERE id = $1', [decoded.id]);
     const user = result.rows[0];
