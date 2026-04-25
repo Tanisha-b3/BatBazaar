@@ -25,11 +25,11 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// Middleware
-const allowedOrigins = [
-  process.env.FRONTEND_URL,
-  process.env.ADMIN_URL
-];
+// // Middleware
+// const allowedOrigins = [
+//   process.env.FRONTEND_URL,
+//   process.env.ADMIN_URL
+// ];
 
 // CORS configuration
 const allowedOrigins = [
