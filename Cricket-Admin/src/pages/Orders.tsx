@@ -227,7 +227,7 @@ export default function Orders() {
             <StatCard label="Pending"    value={orders.filter(o => o.status === 'pending').length}    color="text-amber-600" />
             <StatCard label="Processing" value={orders.filter(o => o.status === 'processing').length} color="text-sky-600" />
             <StatCard label="Delivered"  value={orders.filter(o => o.status === 'delivered').length}  color="text-emerald-600" />
-            <StatCard label="Revenue"    value={formatCurrency(orders.reduce((s, o) => s + o.total_amount, 0))} color="text-violet-600" />
+            <StatCard label="Revenue"    value={formatCurrency(orders.reduce((s, o) => s + Number(o.total_amount), 0))} color="text-violet-600" />
           </div>
         )}
 
