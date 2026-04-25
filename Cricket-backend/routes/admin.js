@@ -23,23 +23,7 @@ const verifyAdmin = async (req, res, next) => {
   }
 };
 
-router.post('/create', async (req, res, next) => {
-  try {
-    const adminCount = await db().query('SELECT COUNT(*) FROM admins');
-
-    if (parseInt(adminCount.rows[0].count) > 0) {
-      // If admin exists → run middleware properly
-      return verifyAdmin(req, res, () => createAdminHandler(req, res));
-    }
-
-    // First admin → no auth required
-    return createAdminHandler(req, res);
-
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: 'Error creating admin' });
-  }
-});
+router.post('/create', createAdminHandler);
 
 const createAdminHandler = async (req, res) => {
   const { name, email, password } = req.body;
