@@ -23,35 +23,57 @@ const verifyAdmin = async (req, res, next) => {
   }
 };
 
-router.post('/create', verifyAdmin, async (req, res) => {
+router.post('/create', async (req, res) => {
   try {
     const { name, email, password } = req.body;
-    
+
     if (!name || !email || !password) {
       return res.status(400).json({ message: 'Name, email and password required' });
     }
-    
-    const hashedPassword = await bcrypt.hash(password, 10);
-    
-    const existingAdmin = await db().query('SELECT * FROM admins WHERE email = $1', [email]);
-    if (existingAdmin.rows.length > 0) {
-      return res.status(400).json({ message: 'Admin with this email already exists' });
+
+    // 🔥 Check if any admin exists
+    const adminCount = await db().query('SELECT COUNT(*) FROM admins');
+
+    if (parseInt(adminCount.rows[0].count) > 0) {
+      // If admin exists → require token
+      return verifyAdmin(req, res, async () => {
+        await createAdminHandler(req, res);
+      });
     }
-    
-    const result = await db().query(
-      'INSERT INTO admins (name, email, password) VALUES ($1, $2, $3) RETURNING id',
-      [name, email, hashedPassword]
-    );
-    
-    res.status(201).json({ 
-      message: 'Admin created successfully',
-      admin: { id: result.rows[0].id, name, email }
-    });
+
+    // First admin → allow directly
+    await createAdminHandler(req, res);
+
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: 'Error creating admin' });
   }
 });
+
+const createAdminHandler = async (req, res) => {
+  const { name, email, password } = req.body;
+
+  const hashedPassword = await bcrypt.hash(password, 10);
+
+  const existingAdmin = await db().query(
+    'SELECT * FROM admins WHERE email = $1',
+    [email]
+  );
+
+  if (existingAdmin.rows.length > 0) {
+    return res.status(400).json({ message: 'Admin already exists' });
+  }
+
+  const result = await db().query(
+    'INSERT INTO admins (name, email, password) VALUES ($1, $2, $3) RETURNING id',
+    [name, email, hashedPassword]
+  );
+
+  res.status(201).json({
+    message: 'Admin created successfully',
+    admin: { id: result.rows[0].id, name, email }
+  });
+};
 
 router.get('/list', verifyAdmin, async (req, res) => {
   try {
