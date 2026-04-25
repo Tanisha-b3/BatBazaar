@@ -23,7 +23,6 @@ const verifyAdmin = async (req, res, next) => {
   }
 };
 
-router.post('/create', createAdminHandler);
 
 const createAdminHandler = async (req, res) => {
   const { name, email, password } = req.body;
@@ -49,6 +48,10 @@ const createAdminHandler = async (req, res) => {
     admin: { id: result.rows[0].id, name, email }
   });
 };
+
+router.post('/create', createAdminHandler);
+
+
 
 router.get('/list', verifyAdmin, async (req, res) => {
   try {
