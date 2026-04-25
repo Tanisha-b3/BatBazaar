@@ -2,7 +2,10 @@
 
 > A full-stack cricket equipment e-commerce platform with a customer storefront, REST API backend, and a separate admin dashboard.
 
-🌐 **Live:** [bat-bazaar.vercel.app](https://bat-bazaar.vercel.app)
+🌐 **Live:** 
+- Admin: https://bat-bazaar-8k7d.vercel.app/
+- frontend: https://bat-bazaar-vec7.vercel.app/     
+- backend: https://bat-bazaar.vercel.app/
 
 ---
 
