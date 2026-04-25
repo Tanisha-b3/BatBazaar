@@ -22,6 +22,9 @@ export async function initializeDatabase() {
       max: 20, // maximum number of clients in the pool
       idleTimeoutMillis: 30000,
       connectionTimeoutMillis: 2000,
+       ssl: {
+    rejectUnauthorized: false, // 👈 REQUIRED for cloud DB
+  },
     });
 
     // Test the connection
