@@ -31,6 +31,9 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // Routes
+app.get('/', (req, res) => {
+  res.json({ message: 'Welcome to the Cricket Store API' });
+});
 app.use('/api/auth', authRoutes);
 app.use('/api/products', productRoutes);
 app.use('/api/cart', cartRoutes);
