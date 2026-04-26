@@ -213,7 +213,7 @@ const Navbar: React.FC<NavbarProps> = ({ user: propUser, onLogout, cartCount: pr
           </button>
 
 {/* Right Section - Desktop */}
-          <div className="hidden lg:flex items-center gap-2 md:gap-4">
+          <div className="hidden md:flex items-center gap-2 md:gap-4">
             {/* Notification Bell - only when logged in */}
             {user && (
               <Link to="/notifications" className="relative w-9 h-9 flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors group">
@@ -400,6 +400,30 @@ const Navbar: React.FC<NavbarProps> = ({ user: propUser, onLogout, cartCount: pr
                       onClick={() => setMobileMenuOpen(false)}
                     >
                       <ShoppingCart size={18} /> My Orders
+                    </Link>
+                    <Link
+                      to="/notifications"
+                      className="flex items-center gap-3 py-3 px-3 rounded-lg text-base text-[#464646] hover:bg-gray-50 transition-colors"
+                      onClick={() => setMobileMenuOpen(false)}
+                    >
+                      <Bell size={18} /> Notifications
+                      {notificationCount > 0 && (
+                        <span className="ml-auto min-w-[20px] h-[20px] bg-red-500 rounded-full text-[10px] text-white flex items-center justify-center font-semibold">
+                          {notificationCount > 9 ? '9+' : notificationCount}
+                        </span>
+                      )}
+                    </Link>
+                    <Link
+                      to="/cart"
+                      className="flex items-center gap-3 py-3 px-3 rounded-lg text-base text-[#464646] hover:bg-gray-50 transition-colors"
+                      onClick={() => setMobileMenuOpen(false)}
+                    >
+                      <ShoppingCart size={18} /> Cart
+                      {cartCount > 0 && (
+                        <span className="ml-auto min-w-[20px] h-[20px] bg-[#3F51B5] rounded-full text-[10px] text-white flex items-center justify-center font-semibold">
+                          {cartCount > 9 ? '9+' : cartCount}
+                        </span>
+                      )}
                     </Link>
                     <Link
                       to="/settings"
